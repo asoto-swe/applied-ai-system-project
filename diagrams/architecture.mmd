@@ -1,0 +1,11 @@
+flowchart LR
+    User[User / Client] --> UI[Web Application]
+    UI --> API[API Gateway]
+    API --> Auth[Authentication Service]
+    API --> Worker[AI Processing Service]
+    Worker --> Model[LLM / Model Inference]
+    Worker --> VectorDB[(Vector Database)]
+    Worker --> Storage[(Object Storage)]
+    Worker --> Logs[Logging & Monitoring]
+    Model --> Feedback[Feedback Loop]
+    Feedback --> Worker
