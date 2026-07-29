@@ -1,54 +1,52 @@
 flowchart LR
     User([User / Listener])
     Interface[Music App Interface]
-    Collector[Input Collector]
     Profile[(User Taste Profile)]
-    SongCatalog[(Song Catalog)]
+    Catalog[(Song Catalog)]
+
     Agent[Agent - MusicRecommender]
-    Retriever[Retriever - SongRetriever]
-    VoyageAPI[[Voyage AI Embeddings API]]
-    RetrievalEvaluator{Retrieval Reliability Evaluator}
-    ClaudeAPI[[Claude API - Explanation Generation]]
-    ExplanationEvaluator{Explanation Reliability Evaluator}
+    Retriever[Retriever - hybrid tags + Voyage embeddings]
+    SpecializedModel[[Specialized Model - trained taste-affinity regressor]]
+    LLM[[Claude API - explanation generation]]
+    Evaluator{Reliability Evaluator - runtime fallback checks}
     Output[Ranked Recommendations with Explanations]
     Feedback[User Feedback Loop]
-    Tester[[Automated Tester - pytest suite]]
+    Tester[[Automated Tester - pytest and reliability checks]]
 
     User -->|1 describes taste| Interface
-    Interface --> Collector
-    Collector --> Profile
+    Interface --> Profile
 
     Profile -->|2 taste profile| Agent
-    SongCatalog -->|3 song catalog| Agent
-    Agent -->|4 delegates retrieval| Retriever
-    Retriever <-->|5 embed profile and songs| VoyageAPI
-    VoyageAPI --> RetrievalEvaluator
-    RetrievalEvaluator -->|embeddings ok, use hybrid scoring| Retriever
-    RetrievalEvaluator -.->|embeddings fail, fall back to tag matching only| Retriever
-    Retriever -->|6 retrieved evidence and semantic scores| Agent
+    Catalog -->|3 song catalog| Agent
+    Agent -->|4a delegates retrieval| Retriever
+    Agent -->|4b delegates audio-fit prediction| SpecializedModel
+    Retriever -->|5a evidence and semantic scores| Agent
+    SpecializedModel -->|5b predicted audio-feature fit| Agent
 
-    Agent -->|7 evidence plus profile| ClaudeAPI
-    ClaudeAPI --> ExplanationEvaluator
-    ExplanationEvaluator -->|generation ok, use AI explanation| Agent
-    ExplanationEvaluator -.->|generation fails or refuses, fall back to template| Agent
+    Agent -->|6 evidence plus profile| LLM
+    LLM -->|7 generated explanation| Agent
 
-    Agent -->|8 ranked list with explanations| Output
+    Evaluator -.->|checks each AI call, falls back gracefully on failure| Retriever
+    Evaluator -.->|checks each AI call, falls back gracefully on failure| SpecializedModel
+    Evaluator -.->|checks each AI call, falls back gracefully on failure| LLM
+
+    Agent -->|8 ranked list| Output
     Output --> Interface
     Interface -->|9 shows results| User
 
     User -->|10 accepts or refines taste| Feedback
     Feedback --> Profile
 
-    Tester -.->|verifies before merge| Retriever
-    Tester -.->|verifies before merge| Agent
+    Tester -.->|verifies correctness, consistency, and graceful degradation| Retriever
+    Tester -.->|verifies correctness, consistency, and graceful degradation| SpecializedModel
+    Tester -.->|verifies correctness, consistency, and graceful degradation| Agent
 
-    subgraph Pipeline [Retrieval and Generation Pipeline]
+    subgraph Pipeline [AI Pipeline]
         Agent
         Retriever
-        VoyageAPI
-        RetrievalEvaluator
-        ClaudeAPI
-        ExplanationEvaluator
+        SpecializedModel
+        LLM
+        Evaluator
     end
 
     subgraph HumanLoop [Human Checkpoint - Runtime]
