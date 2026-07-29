@@ -1,5 +1,5 @@
 from music_recommender.data import Song, TasteProfile
-from music_recommender.recommender import recommend_songs
+from music_recommender.recommender import MusicRecommender, recommend_songs
 
 
 def test_recommend_songs_returns_ranked_matches():
@@ -50,3 +50,61 @@ def test_recommend_songs_rejects_empty_profile():
         assert "profile" in str(exc).lower()
     else:
         raise AssertionError("Expected ValueError for empty taste profile")
+
+
+class FakeExplainer:
+    """Deterministic stand-in for ClaudeExplainer — no network/API key needed."""
+
+    def __init__(self, text=None, should_fail=False):
+        self.text = text
+        self.should_fail = should_fail
+        self.last_call = None
+
+    def explain(self, profile, song, evidence):
+        self.last_call = (profile, song, evidence)
+        if self.should_fail:
+            raise RuntimeError("Claude unavailable")
+        return self.text
+
+
+def _sample_profile_and_songs():
+    profile = TasteProfile(
+        name="Maya",
+        preferred_genres=["indie pop"],
+        preferred_moods=["reflective"],
+        preferred_themes=["nostalgia", "solitude"],
+        favorite_artists=["Phoebe Bridgers"],
+    )
+    songs = [
+        Song(
+            title="Garden Song",
+            artist="Phoebe Bridgers",
+            genre="indie pop",
+            mood="reflective",
+            themes=["nostalgia", "solitude"],
+            lyrics_excerpt="I miss the way we used to be",
+        ),
+    ]
+    return profile, songs
+
+
+def test_recommend_uses_ai_generated_explanation_when_available():
+    profile, songs = _sample_profile_and_songs()
+    explainer = FakeExplainer(text="Maya, this hits your nostalgic indie-pop sweet spot perfectly.")
+
+    recommender = MusicRecommender(explainer=explainer)
+    recommendations = recommender.recommend(profile, songs, limit=1)
+
+    assert recommendations[0].explanation == "Maya, this hits your nostalgic indie-pop sweet spot perfectly."
+    assert explainer.last_call is not None
+
+
+def test_recommend_falls_back_to_template_when_ai_explanation_fails():
+    profile, songs = _sample_profile_and_songs()
+    explainer = FakeExplainer(should_fail=True)
+
+    recommender = MusicRecommender(explainer=explainer)
+    recommendations = recommender.recommend(profile, songs, limit=1)
+
+    assert "nostalgia" in recommendations[0].explanation.lower()
+    assert recommendations[0].explanation.startswith("Maya, this song is a good fit because")

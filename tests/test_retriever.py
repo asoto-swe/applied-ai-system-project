@@ -16,6 +16,18 @@ class FakeEmbeddingClient:
         return self.document_vectors
 
 
+class FakeTasteModel:
+    """Deterministic stand-in for TasteAffinityModel — no sklearn training needed."""
+
+    def __init__(self, prediction):
+        self.prediction = prediction
+        self.last_profile = None
+
+    def predict(self, profile):
+        self.last_profile = profile
+        return self.prediction
+
+
 def test_retrieve_includes_song_on_semantic_match_alone():
     profile = TasteProfile(
         name="Sam",
@@ -88,3 +100,51 @@ def test_retrieve_falls_back_gracefully_when_embeddings_unavailable():
     assert len(retrieved) == 1
     assert retrieved[0]["semantic_score"] == 0.0
     assert retrieved[0]["matched_genres"] == ["indie pop"]
+
+
+def test_retrieve_scores_audio_fit_from_taste_model():
+    profile = TasteProfile(
+        name="Sam", preferred_genres=["lofi"], preferred_moods=["chill"], preferred_themes=[], favorite_artists=[]
+    )
+    songs = [
+        Song(
+            title="Close Sound",
+            artist="X",
+            genre="lofi",
+            mood="chill",
+            themes=[],
+            lyrics_excerpt="",
+            energy=0.2,
+            valence=0.55,
+            acousticness=0.8,
+        )
+    ]
+    fake_embedding_client = FakeEmbeddingClient(query_vector=[0.0], document_vectors=[[0.0]])
+    fake_taste_model = FakeTasteModel(prediction={"energy": 0.2, "valence": 0.55, "acousticness": 0.8})
+    retriever = SongRetriever(embedding_client=fake_embedding_client, taste_model=fake_taste_model)
+
+    retrieved = retriever.retrieve(profile, songs)
+
+    assert len(retrieved) == 1
+    assert retrieved[0]["audio_fit_score"] == 1.0
+    assert fake_taste_model.last_profile is profile
+
+
+def test_retrieve_falls_back_gracefully_when_taste_model_unavailable():
+    class BrokenTasteModel:
+        def predict(self, profile):
+            raise RuntimeError("model unavailable")
+
+    profile = TasteProfile(
+        name="Sam", preferred_genres=["indie pop"], preferred_moods=[], preferred_themes=[], favorite_artists=[]
+    )
+    songs = [
+        Song(title="Tagged Match", artist="X", genre="indie pop", mood="chill", themes=[], lyrics_excerpt="")
+    ]
+    fake_embedding_client = FakeEmbeddingClient(query_vector=[1.0], document_vectors=[[1.0]])
+    retriever = SongRetriever(embedding_client=fake_embedding_client, taste_model=BrokenTasteModel())
+
+    retrieved = retriever.retrieve(profile, songs)
+
+    assert len(retrieved) == 1
+    assert retrieved[0]["audio_fit_score"] == 0.0

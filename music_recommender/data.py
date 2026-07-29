@@ -10,6 +10,12 @@ class Song:
     mood: str
     themes: List[str] = field(default_factory=list)
     lyrics_excerpt: str = ""
+    # Audio features on a 0.0-1.0 scale, compared against the taste-affinity
+    # model's predicted target profile (see taste_model.py). Default to a
+    # neutral midpoint for songs whose audio features aren't known.
+    energy: float = 0.5
+    valence: float = 0.5
+    acousticness: float = 0.5
 
 
 @dataclass

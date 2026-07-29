@@ -1,0 +1,30 @@
+genre,mood,energy,valence,acousticness
+pop,happy,0.85,0.90,0.15
+pop,energetic,0.90,0.75,0.10
+indie pop,reflective,0.40,0.55,0.50
+indie pop,nostalgic,0.35,0.50,0.55
+dream pop,dreamy,0.35,0.50,0.45
+lofi,chill,0.25,0.55,0.75
+lofi,relaxed,0.20,0.60,0.80
+rock,intense,0.90,0.55,0.15
+rock,angry,0.85,0.30,0.10
+metal,intense,0.95,0.35,0.05
+jazz,relaxed,0.40,0.65,0.55
+jazz,romantic,0.35,0.70,0.50
+classical,calm,0.30,0.60,0.85
+classical,melancholic,0.25,0.30,0.80
+ambient,calm,0.15,0.55,0.70
+ambient,dreamy,0.20,0.50,0.65
+hip hop,confident,0.75,0.65,0.10
+hip hop,energetic,0.85,0.70,0.05
+reggae,relaxed,0.55,0.75,0.35
+reggae,happy,0.60,0.80,0.30
+country,nostalgic,0.45,0.60,0.55
+folk,nostalgic,0.35,0.55,0.70
+folk,reflective,0.30,0.50,0.75
+edm,euphoric,0.95,0.85,0.05
+edm,energetic,0.90,0.75,0.05
+synthwave,nostalgic,0.60,0.55,0.15
+punk,angry,0.90,0.35,0.10
+r&b,romantic,0.50,0.65,0.30
+blues,melancholic,0.40,0.35,0.45

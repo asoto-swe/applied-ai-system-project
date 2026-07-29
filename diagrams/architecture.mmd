@@ -7,7 +7,9 @@ flowchart LR
     Agent[Agent - MusicRecommender]
     Retriever[Retriever - SongRetriever]
     VoyageAPI[[Voyage AI Embeddings API]]
-    Evaluator{Reliability Evaluator}
+    RetrievalEvaluator{Retrieval Reliability Evaluator}
+    ClaudeAPI[[Claude API - Explanation Generation]]
+    ExplanationEvaluator{Explanation Reliability Evaluator}
     Output[Ranked Recommendations with Explanations]
     Feedback[User Feedback Loop]
     Tester[[Automated Tester - pytest suite]]
@@ -20,26 +22,33 @@ flowchart LR
     SongCatalog -->|3 song catalog| Agent
     Agent -->|4 delegates retrieval| Retriever
     Retriever <-->|5 embed profile and songs| VoyageAPI
-    VoyageAPI --> Evaluator
-    Evaluator -->|embeddings ok, use hybrid scoring| Retriever
-    Evaluator -.->|embeddings fail, fall back to tag matching only| Retriever
+    VoyageAPI --> RetrievalEvaluator
+    RetrievalEvaluator -->|embeddings ok, use hybrid scoring| Retriever
+    RetrievalEvaluator -.->|embeddings fail, fall back to tag matching only| Retriever
     Retriever -->|6 retrieved evidence and semantic scores| Agent
 
-    Agent -->|7 ranked list with why-explanations| Output
-    Output --> Interface
-    Interface -->|8 shows results| User
+    Agent -->|7 evidence plus profile| ClaudeAPI
+    ClaudeAPI --> ExplanationEvaluator
+    ExplanationEvaluator -->|generation ok, use AI explanation| Agent
+    ExplanationEvaluator -.->|generation fails or refuses, fall back to template| Agent
 
-    User -->|9 accepts or refines taste| Feedback
+    Agent -->|8 ranked list with explanations| Output
+    Output --> Interface
+    Interface -->|9 shows results| User
+
+    User -->|10 accepts or refines taste| Feedback
     Feedback --> Profile
 
     Tester -.->|verifies before merge| Retriever
     Tester -.->|verifies before merge| Agent
 
-    subgraph Pipeline [Retrieval and Recommendation Pipeline]
+    subgraph Pipeline [Retrieval and Generation Pipeline]
         Agent
         Retriever
         VoyageAPI
-        Evaluator
+        RetrievalEvaluator
+        ClaudeAPI
+        ExplanationEvaluator
     end
 
     subgraph HumanLoop [Human Checkpoint - Runtime]
