@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from .data import Song, TasteProfile
 from .embeddings import VoyageEmbeddingClient, cosine_similarity
+from .knowledge import GenreKnowledgeBase
 from .taste_model import TasteAffinityModel
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ def _default_taste_model() -> Optional[TasteAffinityModel]:
 class SongRetriever:
     """Retrieve relevant songs and supporting evidence for a taste profile.
 
-    Combines three signals:
+    Combines three scoring signals plus a second retrieved data source:
       - Exact categorical matching (genre/mood/theme/artist).
       - Semantic similarity over song meaning (lyrics/themes) via Voyage AI
         embeddings, so a song can surface because it *means* something close
@@ -51,19 +52,29 @@ class SongRetriever:
       - A predicted audio-feature fit (energy/valence/acousticness) from the
         taste-affinity model (see taste_model.py), a small model trained on a
         curated (genre, mood) -> audio-feature dataset.
+      - A genre-background note pulled from a second corpus (knowledge.py),
+        independent of the song catalog, that grounds the explanation in
+        *why* a genre tends to sound the way it does.
+      - Detailed mood tags and popularity, generated offline by an agentic
+        AI workflow (see song_attributes.py) — finer-grained mood matching
+        than the single `mood` field, plus a small popularity signal
+        mirroring how real recommenders factor in mainstream familiarity.
 
-    Each signal degrades gracefully and independently: if Voyage embeddings
-    or the taste-affinity model are unavailable, retrieval falls back to
-    whichever signals still work rather than failing outright.
+    Each signal degrades gracefully and independently: if Voyage embeddings,
+    the taste-affinity model, or the genre knowledge base are unavailable,
+    retrieval falls back to whichever signals still work rather than failing
+    outright.
     """
 
     def __init__(
         self,
         embedding_client: Optional[VoyageEmbeddingClient] = None,
         taste_model: Optional[TasteAffinityModel] = None,
+        genre_notes: Optional[GenreKnowledgeBase] = None,
     ) -> None:
         self.embedding_client = embedding_client or VoyageEmbeddingClient()
         self.taste_model = taste_model if taste_model is not None else _default_taste_model()
+        self.genre_notes = genre_notes if genre_notes is not None else GenreKnowledgeBase()
 
     def retrieve(self, profile: TasteProfile, songs: List[Song]) -> List[dict]:
         if not profile.preferred_genres and not profile.preferred_moods and not profile.preferred_themes and not profile.favorite_artists:
@@ -82,6 +93,12 @@ class SongRetriever:
                 "matched_artists": [artist for artist in profile.favorite_artists if artist.lower() == song.artist.lower()],
                 "semantic_score": semantic_scores.get(song.title, 0.0),
                 "audio_fit_score": self._audio_fit_score(song, audio_target),
+                "genre_context": self.genre_notes.lookup(song.genre) if self.genre_notes else None,
+                "matched_detailed_moods": [
+                    mood for mood in profile.preferred_moods
+                    if mood.lower() in [tag.lower() for tag in song.detailed_mood_tags]
+                ],
+                "popularity_score": (song.popularity / 100.0) if song.popularity is not None else 0.0,
             }
             has_categorical_match = any(
                 evidence[key] for key in ("matched_genres", "matched_moods", "matched_themes", "matched_artists")

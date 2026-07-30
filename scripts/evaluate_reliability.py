@@ -16,7 +16,8 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from music_recommender.data import Song, TasteProfile
+from music_recommender.data import TasteProfile
+from music_recommender.demo_catalog import CATALOG
 from music_recommender.recommender import MusicRecommender
 from music_recommender.reliability import (
     check_consistency,
@@ -26,49 +27,6 @@ from music_recommender.reliability import (
 )
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
-
-CATALOG = [
-    Song(
-        title="Garden Song", artist="Phoebe Bridgers", genre="indie pop", mood="reflective",
-        themes=["nostalgia", "solitude"], lyrics_excerpt="I miss the way we used to be",
-        energy=0.40, valence=0.50, acousticness=0.55,
-    ),
-    Song(
-        title="Sunset Drive", artist="The xx", genre="dream pop", mood="introspective",
-        themes=["late night", "dreams"], lyrics_excerpt="The city lights blur into the dark",
-        energy=0.35, valence=0.50, acousticness=0.45,
-    ),
-    Song(
-        title="Sunrise City", artist="Neon Echo", genre="pop", mood="happy",
-        themes=["new beginnings"], lyrics_excerpt="Everything feels possible today",
-        energy=0.85, valence=0.90, acousticness=0.15,
-    ),
-    Song(
-        title="Library Rain", artist="Paper Lanterns", genre="lofi", mood="chill",
-        themes=["studying", "quiet nights"], lyrics_excerpt="Pages turning, rain on glass",
-        energy=0.25, valence=0.55, acousticness=0.75,
-    ),
-    Song(
-        title="Storm Runner", artist="Voltline", genre="rock", mood="intense",
-        themes=["defiance"], lyrics_excerpt="I won't back down from the storm",
-        energy=0.90, valence=0.55, acousticness=0.15,
-    ),
-    Song(
-        title="Ironclad", artist="Blackforge", genre="metal", mood="intense",
-        themes=["resilience"], lyrics_excerpt="Forged in fire, I don't break",
-        energy=0.95, valence=0.35, acousticness=0.05,
-    ),
-    Song(
-        title="Coffee Shop Stories", artist="Slow Stereo", genre="folk", mood="nostalgic",
-        themes=["memory", "small towns"], lyrics_excerpt="Every booth here holds a story",
-        energy=0.30, valence=0.55, acousticness=0.70,
-    ),
-    Song(
-        title="Pulse Reactor", artist="Circuit Halo", genre="edm", mood="euphoric",
-        themes=["release"], lyrics_excerpt="Let it go, feel the pulse take over",
-        energy=0.95, valence=0.85, acousticness=0.05,
-    ),
-]
 
 # Normal profiles plus adversarial/edge-case ones, in the same spirit as the
 # Module 3 source project's stress tests: conflicting signals, a genre

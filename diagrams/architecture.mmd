@@ -4,12 +4,13 @@ flowchart LR
     Profile[(User Taste Profile)]
     Catalog[(Song Catalog)]
 
-    Agent[Agent - MusicRecommender]
+    Agent[Agent - MusicRecommender - ranking strategy plus diversity re-rank]
     Retriever[Retriever - hybrid tags + Voyage embeddings]
+    GenreKB[(Genre Knowledge Base - second RAG data source)]
     SpecializedModel[[Specialized Model - trained taste-affinity regressor]]
     LLM[[Claude API - explanation generation]]
     Evaluator{Reliability Evaluator - runtime fallback checks}
-    Output[Ranked Recommendations with Explanations]
+    Output[Ranked and Diversified Recommendations with Explanations]
     Feedback[User Feedback Loop]
     Tester[[Automated Tester - pytest and reliability checks]]
 
@@ -20,7 +21,8 @@ flowchart LR
     Catalog -->|3 song catalog| Agent
     Agent -->|4a delegates retrieval| Retriever
     Agent -->|4b delegates audio-fit prediction| SpecializedModel
-    Retriever -->|5a evidence and semantic scores| Agent
+    GenreKB -->|genre background notes| Retriever
+    Retriever -->|5a evidence, semantic scores, genre context| Agent
     SpecializedModel -->|5b predicted audio-feature fit| Agent
 
     Agent -->|6 evidence plus profile| LLM
@@ -30,7 +32,7 @@ flowchart LR
     Evaluator -.->|checks each AI call, falls back gracefully on failure| SpecializedModel
     Evaluator -.->|checks each AI call, falls back gracefully on failure| LLM
 
-    Agent -->|8 ranked list| Output
+    Agent -->|8 ranked and diversified list| Output
     Output --> Interface
     Interface -->|9 shows results| User
 
@@ -44,6 +46,7 @@ flowchart LR
     subgraph Pipeline [AI Pipeline]
         Agent
         Retriever
+        GenreKB
         SpecializedModel
         LLM
         Evaluator

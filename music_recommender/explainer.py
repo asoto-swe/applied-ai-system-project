@@ -85,6 +85,10 @@ class ClaudeExplainer:
             matches.append(f"favorite artist match: {', '.join(evidence['matched_artists'])}")
         semantic_score = evidence.get("semantic_score", 0.0)
         audio_fit_score = evidence.get("audio_fit_score", 0.0)
+        genre_context = evidence.get("genre_context")
+        genre_context_line = (
+            f"- Background on {song.genre} as a genre: {genre_context}\n" if genre_context else ""
+        )
 
         return (
             f"Listener name: {profile.name}\n"
@@ -99,12 +103,15 @@ class ClaudeExplainer:
             f"- Semantic similarity between the listener's taste and this song's meaning: "
             f"{semantic_score:.2f} on a 0 to 1 scale\n"
             f"- Predicted audio-feature fit (energy/positivity/acousticness, from a model "
-            f"trained on genre and mood): {audio_fit_score:.2f} on a 0 to 1 scale\n\n"
+            f"trained on genre and mood): {audio_fit_score:.2f} on a 0 to 1 scale\n"
+            f"{genre_context_line}\n"
             "Write a 1-2 sentence, warm, specific explanation of why this song fits the "
             "listener, addressed to them by name. Ground every claim in the evidence above — "
             "do not invent facts about the song or the listener that aren't given. If the "
             "semantic similarity or audio-feature fit is the main driver (few or no tag "
             "matches), explain the connection in terms of feeling, meaning, or overall sound "
             "rather than claiming a tag match that didn't happen. Only mention audio-feature "
-            "fit if it's reasonably high (0.7+); otherwise ignore it."
+            "fit if it's reasonably high (0.7+); otherwise ignore it. You may briefly weave in "
+            "the genre background if it's given and genuinely adds something, but keep the "
+            "focus on the listener, not a genre lecture."
         )

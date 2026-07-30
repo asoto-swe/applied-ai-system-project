@@ -148,3 +148,75 @@ def test_retrieve_falls_back_gracefully_when_taste_model_unavailable():
 
     assert len(retrieved) == 1
     assert retrieved[0]["audio_fit_score"] == 0.0
+
+
+def test_retrieve_attaches_genre_context_from_second_data_source():
+    class FakeGenreKnowledgeBase:
+        def lookup(self, genre):
+            return "test background note" if genre == "indie pop" else None
+
+    profile = TasteProfile(
+        name="Sam", preferred_genres=["indie pop"], preferred_moods=[], preferred_themes=[], favorite_artists=[]
+    )
+    songs = [
+        Song(title="Tagged Match", artist="X", genre="indie pop", mood="chill", themes=[], lyrics_excerpt="")
+    ]
+    fake_embedding_client = FakeEmbeddingClient(query_vector=[1.0], document_vectors=[[1.0]])
+    retriever = SongRetriever(embedding_client=fake_embedding_client, genre_notes=FakeGenreKnowledgeBase())
+
+    retrieved = retriever.retrieve(profile, songs)
+
+    assert retrieved[0]["genre_context"] == "test background note"
+
+
+def test_retrieve_genre_context_is_none_for_unknown_genre():
+    class FakeGenreKnowledgeBase:
+        def lookup(self, genre):
+            return None
+
+    profile = TasteProfile(
+        name="Sam", preferred_genres=["glitchcore"], preferred_moods=[], preferred_themes=[], favorite_artists=[]
+    )
+    songs = [
+        Song(title="Obscure", artist="X", genre="glitchcore", mood="chill", themes=[], lyrics_excerpt="")
+    ]
+    fake_embedding_client = FakeEmbeddingClient(query_vector=[1.0], document_vectors=[[1.0]])
+    retriever = SongRetriever(embedding_client=fake_embedding_client, genre_notes=FakeGenreKnowledgeBase())
+
+    retrieved = retriever.retrieve(profile, songs)
+
+    assert retrieved[0]["genre_context"] is None
+
+
+def test_retrieve_computes_detailed_mood_match_and_popularity_score():
+    profile = TasteProfile(
+        name="Sam", preferred_genres=["indie pop"], preferred_moods=["wistful"],
+        preferred_themes=[], favorite_artists=[],
+    )
+    songs = [
+        Song(
+            title="Tagged Match", artist="X", genre="indie pop", mood="reflective",
+            themes=[], lyrics_excerpt="", detailed_mood_tags=["wistful", "tender"], popularity=60,
+        )
+    ]
+    fake_embedding_client = FakeEmbeddingClient(query_vector=[1.0], document_vectors=[[1.0]])
+    retriever = SongRetriever(embedding_client=fake_embedding_client)
+
+    retrieved = retriever.retrieve(profile, songs)
+
+    assert retrieved[0]["matched_detailed_moods"] == ["wistful"]
+    assert retrieved[0]["popularity_score"] == 0.6
+
+
+def test_retrieve_defaults_popularity_score_to_zero_when_unset():
+    profile = TasteProfile(
+        name="Sam", preferred_genres=["indie pop"], preferred_moods=[], preferred_themes=[], favorite_artists=[]
+    )
+    songs = [Song(title="No Attrs", artist="X", genre="indie pop", mood="reflective")]
+    fake_embedding_client = FakeEmbeddingClient(query_vector=[1.0], document_vectors=[[1.0]])
+    retriever = SongRetriever(embedding_client=fake_embedding_client)
+
+    retrieved = retriever.retrieve(profile, songs)
+
+    assert retrieved[0]["popularity_score"] == 0.0
+    assert retrieved[0]["matched_detailed_moods"] == []
