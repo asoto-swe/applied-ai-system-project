@@ -1,5 +1,12 @@
 # TuneMatch: A Hybrid RAG Music Recommender
 
+**TL;DR:** A music recommender that retrieves by *meaning* (tags + semantic embeddings), ranks with a trained specialized model, generates grounded explanations via Claude, and re-ranks for fairness — evolved from an explainable rule-based Module 3 prototype into a 4-signal AI pipeline.
+
+- **AI features:** RAG (hybrid retrieval + a second knowledge-base data source), a trained specialized model (scikit-learn), a live-verified agentic workflow (Claude tool-calling to generate song attributes — [`ai_interactions.md`](ai_interactions.md)), and a dedicated reliability/consistency test system
+- **Engineering signals:** 32 passing tests, every AI dependency degrades gracefully instead of crashing, and real bugs caught and fixed mid-project rather than hidden — see [Testing Summary](#testing-summary) and [`model_card.md`](model_card.md)
+- **Proof it runs:** [Reproducible Execution Evidence](#reproducible-execution-evidence) has 5 real, unedited terminal transcripts — no video required
+- **Try it:** `python app.py --mode mood-first` (see [Setup Instructions](#setup-instructions))
+
 ## Original Project (Module 1-3)
 
 This project extends **TuneMatch** (also referred to as *VibeFinder 1.0* in its model card), a Module 3 mini-project at `ai110-module3show-musicrecommendersimulation-starter`. The original TuneMatch was a deliberately non-ML, fully explainable recommender: a listener described their taste as a favorite genre, mood, target energy level, and an acoustic preference, and the system scored every song in a hand-built 17-song catalog against that profile using hand-tuned weighted rules (exact genre/mood match, energy closeness, an acousticness nudge) plus a diversity re-ranking penalty to avoid recommending five songs by the same artist. It returned a ranked top-5 list with a transparent, per-feature "why" for every pick, and its README/model card documented real biases found through adversarial stress-testing — most notably that its heaviest-weighted signal (energy) created a "safe middle" filter-bubble effect. The explicit design priority was explainability over predictive accuracy.
