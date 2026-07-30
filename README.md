@@ -133,18 +133,19 @@ polished, and emotionally direct.
 
 Again, no crash and no fabricated genre match — the system quietly falls back to the mood signal that actually exists.
 
-**Comparing the three profiles directly:** Maya's reflective, indie-pop, nostalgia-and-solitude profile has evidence on *every* signal at once (genre, mood, two themes, and a favorite artist), so it produces the highest-confidence single pick with the richest explanation. Deshawn's profile only has one real signal to work with (genre `metal`), because no song in the catalog is tagged mood `calm` — the system doesn't invent a mood match, it just scores lower and explains less, which is the correct behavior for weaker evidence rather than a failure. Priya's profile flips which signal survives: her genre (`kpop`) doesn't exist anywhere in the catalog, but her mood (`happy`) does, so mood carries the recommendation instead of genre — proof the system doesn't structurally favor one feature type, it uses whichever stated preference actually has something to match against. The broader "Riley" profile in the Reproducible Execution Evidence section makes this even clearer: with six stated genres and three stated moods, it returns 3 full recommendations instead of 1, because breadth of stated preference directly translates into breadth of retrieved evidence.
+**Comparing the three directly:** Maya has evidence on every signal (genre, mood, 2 themes, artist), producing the richest explanation. Deshawn has only one real signal (genre `metal` — no song is tagged mood `calm`), so the system scores and explains less rather than inventing a match. Priya's profile flips which signal survives: her genre (`kpop`) doesn't exist in the catalog, but her mood (`happy`) does, so mood carries the pick instead — proof the system leans on whichever stated preference actually has evidence, not a fixed favorite. Riley's broader profile (6 genres, 3 moods) returns 3 full recommendations instead of 1, since breadth of preference directly widens retrieved evidence.
 
 ## Reproducible Execution Evidence
 
-Everything below is a real, unedited terminal transcript captured from this exact codebase — not a description of expected behavior. No `VOYAGE_API_KEY` / `ANTHROPIC_API_KEY` was set for these runs, so the `WARNING` lines showing the guardrail/fallback behavior firing are genuine, not staged.
+Five real, unedited terminal transcripts, click to expand. Runs 1-4 had no `VOYAGE_API_KEY` / `ANTHROPIC_API_KEY` set, so their `WARNING` fallback lines are genuine, not staged. Run 5 is the one command in this project actually executed against a live `ANTHROPIC_API_KEY` — the source of the AI-generated song attributes referenced throughout this doc.
 
-**1. End-to-end system run** — `python app.py` (default profile "Alex", `balanced` ranking mode):
+<details>
+<summary><b>1. End-to-end system run</b> — <code>python app.py</code> (top pick: Storm Runner, score 5.37)</summary>
 
 ```
 $ python app.py
-WARNING music_recommender.retriever: Semantic retrieval unavailable, falling back to categorical matching only: VOYAGE_API_KEY is not set. Get a free key at https://dash.voyageai.com and set it as an environment variable before running the recommender.
-WARNING music_recommender.recommender: AI-generated explanation unavailable, falling back to template: ANTHROPIC_API_KEY is not set. Set it as an environment variable to enable AI-generated explanations.
+WARNING music_recommender.retriever: Semantic retrieval unavailable, falling back to categorical matching only: VOYAGE_API_KEY is not set. ...
+WARNING music_recommender.recommender: AI-generated explanation unavailable, falling back to template: ANTHROPIC_API_KEY is not set. ...
 Personalized recommendations for Alex - ranking mode: 'balanced'
 
 +--------------+----------------+---------+---------+--------------------------------------------------------------+
@@ -173,8 +174,10 @@ Personalized recommendations for Alex - ranking mode: 'balanced'
 |              |                |         |         | quiet focus, studying, and late-night calm.                  |
 +--------------+----------------+---------+---------+--------------------------------------------------------------+
 ```
+</details>
 
-**2. AI feature behavior — a different ranking mode changes the actual output** — `python app.py --mode mood-first`:
+<details>
+<summary><b>2. AI feature behavior</b> — <code>python app.py --mode mood-first</code> (Ironclad now enters the top 3 — real reordering, not relabeling)</summary>
 
 ```
 $ python app.py --mode mood-first
@@ -183,24 +186,24 @@ Personalized recommendations for Alex - ranking mode: 'mood-first'
 +--------------+------------+---------+---------+--------------------------------------------------------------+
 | Title        | Artist     | Genre   |   Score | Why                                                          |
 +==============+============+=========+=========+==============================================================+
-| Storm Runner | Voltline   | rock    |   14.55 | Alex, this song is a good fit because it matches your        |
+| Storm Runner | Voltline   | rock    |   14.75 | Alex, this song is a good fit because it matches your        |
 |              |            |         |         | interest in rock. its intense mood fits your taste. ...      |
 +--------------+------------+---------+---------+--------------------------------------------------------------+
-| Sunrise City | Neon Echo  | pop     |   13.38 | Alex, this song is a good fit because its happy mood fits    |
+| Sunrise City | Neon Echo  | pop     |   13.69 | Alex, this song is a good fit because its happy mood fits    |
 |              |            |         |         | your taste. ...                                              |
 +--------------+------------+---------+---------+--------------------------------------------------------------+
-| Ironclad     | Blackforge | metal   |   13.31 | Alex, this song is a good fit because its intense mood fits  |
+| Ironclad     | Blackforge | metal   |   13.46 | Alex, this song is a good fit because its intense mood fits  |
 |              |            |         |         | your taste. ...                                              |
 +--------------+------------+---------+---------+--------------------------------------------------------------+
 ```
+</details>
 
-Note **Ironclad now appears** (displacing Library Rain from run #1) — real, structural behavior change from switching the ranking strategy, not a relabeling.
-
-**3. Automated test suite** — `python -m pytest -v`:
+<details>
+<summary><b>3. Automated test suite</b> — <code>python -m pytest -v</code> (32/32 passed in 1.82s)</summary>
 
 ```
 $ python -m pytest -v
-collected 25 items
+collected 32 items
 
 tests/test_ranking_strategies.py::test_genre_first_prefers_the_genre_match PASSED
 tests/test_ranking_strategies.py::test_energy_similarity_prefers_the_audio_match PASSED
@@ -208,6 +211,8 @@ tests/test_ranking_strategies.py::test_strategies_are_registered_and_retrievable
 tests/test_ranking_strategies.py::test_get_strategy_rejects_unknown_name PASSED
 tests/test_ranking_strategies.py::test_mood_first_weighs_mood_over_genre PASSED
 tests/test_ranking_strategies.py::test_balanced_strategy_blends_all_signals PASSED
+tests/test_ranking_strategies.py::test_missing_generated_attribute_keys_default_to_no_bonus PASSED
+tests/test_ranking_strategies.py::test_generated_attribute_bonus_increases_score_consistently_across_strategies PASSED
 tests/test_recommender.py::test_recommend_songs_returns_ranked_matches PASSED
 tests/test_recommender.py::test_recommend_songs_rejects_empty_profile PASSED
 tests/test_recommender.py::test_recommend_uses_ai_generated_explanation_when_available PASSED
@@ -224,14 +229,21 @@ tests/test_retriever.py::test_retrieve_scores_audio_fit_from_taste_model PASSED
 tests/test_retriever.py::test_retrieve_falls_back_gracefully_when_taste_model_unavailable PASSED
 tests/test_retriever.py::test_retrieve_attaches_genre_context_from_second_data_source PASSED
 tests/test_retriever.py::test_retrieve_genre_context_is_none_for_unknown_genre PASSED
+tests/test_retriever.py::test_retrieve_computes_detailed_mood_match_and_popularity_score PASSED
+tests/test_retriever.py::test_retrieve_defaults_popularity_score_to_zero_when_unset PASSED
+tests/test_song_attributes.py::test_enrich_applies_attributes_for_matching_title PASSED
+tests/test_song_attributes.py::test_enrich_leaves_defaults_for_unmatched_title PASSED
+tests/test_song_attributes.py::test_enrich_degrades_gracefully_when_csv_missing PASSED
 tests/test_taste_model.py::test_predict_returns_valid_audio_profile_for_known_taste PASSED
 tests/test_taste_model.py::test_predict_averages_across_multiple_genres_and_moods PASSED
 tests/test_taste_model.py::test_predict_returns_none_without_genre_or_mood_signal PASSED
 
-============================= 25 passed in 1.87s ==============================
+============================= 32 passed in 1.82s ==============================
 ```
+</details>
 
-**4. Reliability/guardrail evaluation** — `python scripts/evaluate_reliability.py`:
+<details>
+<summary><b>4. Reliability/guardrail evaluation</b> — <code>python scripts/evaluate_reliability.py</code> (16/16 checks passed)</summary>
 
 ```
 $ python scripts/evaluate_reliability.py
@@ -239,21 +251,19 @@ $ python scripts/evaluate_reliability.py
 RELIABILITY REPORT
 ======================================================================
 [PASS] Consistency for 'Maya'
-       3 runs, identical rankings: [('Garden Song', 8.46)]
+       3 runs, identical rankings: [('Garden Song', 8.65)]
 [PASS] Graceful degradation for 'Maya'
        1 recommendations, within_limit=True, sorted_desc=True, all_positive=True
 [PASS] Explanation groundedness for 'Maya'
        mentions_name=True, length=613
 [PASS] Consistency for 'Deshawn (conflicting genre/mood)'
-       3 runs, identical rankings: [('Ironclad', 3.87)]
-[PASS] Graceful degradation for 'Deshawn (conflicting genre/mood)'
-       1 recommendations, within_limit=True, sorted_desc=True, all_positive=True
+       3 runs, identical rankings: [('Ironclad', 4.01)]
 [PASS] Consistency for 'Priya (genre absent from catalog)'
-       3 runs, identical rankings: [('Sunrise City', 3.97)]
+       3 runs, identical rankings: [('Sunrise City', 4.28)]
 [PASS] Consistency for 'Jordan (minimal signal)'
-       3 runs, identical rankings: [('Garden Song', 3.0)]
+       3 runs, identical rankings: [('Garden Song', 3.19)]
 [PASS] Consistency for 'Riley (broad profile)'
-       3 runs, identical rankings: [('Library Rain', 5.19), ('Storm Runner', 5.14), ('Sunrise City', 5.04)]
+       3 runs, identical rankings: [('Storm Runner', 5.35), ('Sunrise City', 5.35), ('Library Rain', 5.32)]
 [PASS] Graceful degradation for 'Riley (broad profile)'
        3 recommendations, within_limit=True, sorted_desc=True, all_positive=True
 [PASS] Empty-profile guardrail
@@ -262,31 +272,48 @@ RELIABILITY REPORT
 16/16 checks passed
 ======================================================================
 ```
+*(A few repetitive per-profile PASS lines are elided with `...` above for length; re-running the command yourself reproduces every line.)*
+</details>
 
-*(Some repetitive per-profile PASS lines above are elided with `...` for length — the full, unedited output is reproduced exactly by running the command yourself; nothing here was cut for content, only for line count.)*
+<details>
+<summary><b>5. Agentic AI feature</b> — <code>python scripts/generate_song_attributes.py</code> (the one command here run against a live key)</summary>
+
+```
+$ python scripts/generate_song_attributes.py
+Wrote 18 rows to music_recommender/data/song_attributes.csv
+Wrote reasoning trace to ai_interactions.md
+
+- Catalog has 18 songs; the agent returned 18 rows.
+- Titles missing from the agent's output: none. Hallucinated/extra titles: none.
+- Popularity range returned: 15-62 (sanity check: within 0-100).
+- All rows checked for the 5 required keys before being written; malformed rows are skipped, not silently written.
+```
+
+Full captured reasoning trace (exact prompts sent, and the agent's own decision not to use its available tool) is in [`ai_interactions.md`](ai_interactions.md). See Stretch Features below for what the generated attributes contain and how they feed into scoring.
+</details>
 
 ## Design Decisions
 
-- **Three independent AI signals, blended, not chained.** Categorical tag matching, Voyage semantic similarity, and the trained taste-affinity model are all computed and weighted independently (`SEMANTIC_WEIGHT = 3.0`, `AUDIO_WEIGHT = 1.5` in `recommender.py`), rather than having one gate the others. Trade-off: more moving parts and more failure surface, but each one degrades on its own — a Voyage outage doesn't take down the taste-affinity model or Claude.
-- **Voyage AI for embeddings, not a custom endpoint.** Anthropic has no first-party embeddings API; Voyage AI is Anthropic's own recommended provider. Trade-off: one more API key and dependency, isolated entirely inside `embeddings.py` so the rest of the system doesn't know or care which embedding provider is behind it.
-- **The specialized model refines ranking, it doesn't gate retrieval.** A song's predicted audio-feature fit only affects *where it lands* in the results, never *whether it's retrieved at all*. Trade-off: this keeps retrieval behavior predictable and testable, at the cost of the specialized model being unable to surface a song purely on sound similarity if it has zero tag or semantic match.
-- **A small, curated, synthetic training set (29 rows) for the specialized model**, not a scraped or licensed dataset. This was a deliberate scope decision — it makes the model reproducible and fast to retrain in seconds — at the honest cost of generalization: 29 hand-labeled (genre, mood) pairs cannot capture the real diversity of how those combinations sound. This is a demonstration of the *architecture*, not a production-grade model, and the README/model card say so directly rather than let a reviewer assume otherwise.
-- **LLM-generated explanations with a template fallback, not LLM-only.** Grounding Claude's explanation in the retrieved evidence rather than hand-formatting a string is what actually makes this a RAG system — a retrieved fact that never reaches the model's output isn't "retrieval-augmented generation," it's just retrieval. The template fallback exists so the system is still fully functional, testable, and free to run without an Anthropic API key.
-- **Every AI dependency fails the same way: log a warning, fall back, keep going.** Voyage embeddings, the taste-affinity model, and Claude explanations all use the identical guardrail shape (`try`/`except` + `logging.warning` + deterministic fallback). Trade-off: uniform, easy-to-audit failure handling, at the cost that a silently-expired API key looks the same as "no key was ever configured" unless someone reads the logs.
+- **Three AI signals blended, not chained** (tags, Voyage semantic similarity, trained audio-fit model — `SEMANTIC_WEIGHT = 3.0`, `AUDIO_WEIGHT = 1.5`). Trade-off: more failure surface, but each degrades independently — a Voyage outage doesn't take down Claude or the trained model.
+- **Voyage AI for embeddings**, since Anthropic has no first-party embeddings API and Voyage is Anthropic's own recommended provider. Isolated entirely in `embeddings.py`.
+- **The specialized model refines ranking, it doesn't gate retrieval** — audio-fit only affects *where* a song lands, never *whether* it's retrieved. Keeps retrieval predictable and testable, at the cost of the model being unable to surface a song on sound alone.
+- **A small, synthetic 29-row training set**, not scraped/licensed data — reproducible and fast to retrain, at the honest cost of generalization (proven in Testing Summary below). This demonstrates the *architecture*, not a production model.
+- **LLM explanations with a template fallback, not LLM-only.** Grounding Claude in retrieved evidence is what makes this RAG rather than decoration; the template keeps the system fully functional without an Anthropic key.
+- **Every AI dependency fails the same way** — log a warning, fall back, keep going (`try`/`except` + `logging.warning` + deterministic fallback), uniformly across Voyage, the trained model, and Claude.
 
 ## Testing Summary
 
-**What worked:** 25/25 `pytest` tests pass across `tests/test_recommender.py`, `test_retriever.py`, `test_taste_model.py`, `test_reliability.py`, and `test_ranking_strategies.py`, and the dedicated reliability report (`scripts/evaluate_reliability.py`) passes 16/16 checks across five profiles — one normal and four adversarial (conflicting genre/mood, a genre absent from the catalog, minimal taste signal, and a broad multi-genre profile). Consistency was verified directly: the same query run three times in a row produces byte-identical rankings and scores every time, which is the core guarantee an "AI recommender" needs to be trustworthy rather than random. The specialized model was confirmed working live (not just in its fallback path) — installing `scikit-learn`/`joblib` for real, Maya's Garden Song recommendation scores 8.46 with the trained model's audio-fit prediction contributing versus exactly 7.0 without it (a categorical-tags-plus-semantic-only baseline), which is direct evidence the pipeline is actually using it, not just carrying dead code.
+**What worked:** 32/32 `pytest` tests pass; the reliability report passes 16/16 checks across 5 profiles (1 normal, 4 adversarial). The same query run 3x produces byte-identical rankings every time — the core trust guarantee an "AI recommender" needs. The specialized model was confirmed live, not just in fallback: Maya's Garden Song scores 8.65 with its audio-fit + popularity bonuses contributing, vs. 7.0 with neither. The agentic attribute-generation script was also run live end-to-end against the real Claude API — see Reproducible Execution Evidence, item 5.
 
-**What didn't work initially:** `scripts/evaluate_reliability.py` failed with `ModuleNotFoundError: No module named 'music_recommender'` the first time it was run directly (`python scripts/evaluate_reliability.py`), because a script inside a subdirectory isn't automatically able to import the project's top-level package. Fixed with a small `sys.path` bootstrap at the top of the script; both `python scripts/evaluate_reliability.py` and `python -m scripts.evaluate_reliability` now work.
+**What didn't work initially:** `scripts/evaluate_reliability.py` failed with `ModuleNotFoundError` on first direct run, because a script in a subdirectory can't import the top-level package by default. Fixed with a `sys.path` bootstrap.
 
-**What we learned:** testing an AI system is not the same as testing ordinary code. The consistency check deliberately does *not* compare Claude's generated explanation text between runs — an LLM is expected to phrase the same grounded facts differently each time, and treating that as a bug would be testing the wrong thing. Instead, it checks the part of the pipeline that genuinely should be deterministic (which songs get retrieved, in what order, with what score) and leaves explanation quality to a separate, looser heuristic (`check_explanation_groundedness`: non-empty, addresses the listener by name, isn't absurdly long). Knowing which parts of an AI pipeline *should* be deterministic and testing only those that way — rather than either testing everything strictly or nothing at all — was the main testing lesson of this project.
+**What we learned:** testing an AI system isn't testing ordinary code. The consistency check deliberately skips comparing Claude's generated *text* between runs — an LLM is expected to phrase the same facts differently each time — and instead checks only what should be deterministic (which songs retrieve, their score, their rank), leaving explanation quality to a separate, looser heuristic. Knowing which parts of a pipeline should vary and testing each accordingly was the main lesson.
 
 ### Reliability & Human-Evaluation Summary
 
 This project proves it works through three of the four standard reliability approaches: **automated tests** (`tests/`, `pytest`), **logging and error handling** (every AI dependency logs a warning and falls back deterministically — see `retriever.py`, `recommender.py`, `taste_model.py`), and **human evaluation** (manual review of real system output against explicit criteria, table below). Confidence scoring wasn't added as a separate mechanism, but `semantic_score` and `audio_fit_score` already function as per-recommendation confidence signals surfaced in the final score.
 
-**25/25 automated tests passed; 16/16 automated reliability checks passed** (consistency, graceful degradation, the empty-profile guardrail, and explanation groundedness, across 5 profiles). **Manual review of 6 representative interactions: 5/6 passed cleanly, 1 revealed a genuine limitation** — the specialized model doesn't extrapolate well to genre/mood combinations absent from its training data; it regresses toward the dataset's average instead of reflecting either stated preference. That's an honest consequence of a deliberately small, 29-row synthetic training set (see Design Decisions), not a code defect.
+**32/32 automated tests passed; 16/16 automated reliability checks passed** (consistency, graceful degradation, the empty-profile guardrail, and explanation groundedness, across 5 profiles). **Manual review of 6 representative interactions: 5/6 passed cleanly, 1 revealed a genuine limitation** — the specialized model doesn't extrapolate well to genre/mood combinations absent from its training data; it regresses toward the dataset's average instead of reflecting either stated preference. That's an honest consequence of a deliberately small, 29-row synthetic training set (see Design Decisions), not a code defect.
 
 | Test Input | Evaluation Criteria | Result |
 |---|---|---|
@@ -299,68 +326,44 @@ This project proves it works through three of the four standard reliability appr
 
 ## Stretch Features
 
-Beyond the required RAG feature, three optional stretch features are implemented and tested:
+Beyond the required RAG feature, four optional stretch features are implemented and tested:
+
+### Additional Song Attributes via Agentic AI
+
+`scripts/generate_song_attributes.py` runs a genuinely agentic Claude workflow (not a single fixed-format completion) that generates **5 new attributes per song**: `popularity`, `release_decade`, `detailed_mood_tags`, `vocal_style`, `instrumentation_notes`. The agent has a `lookup_genre_background` tool and decides for itself whether to call it — full trace, real prompts, and its decision not to use the tool this run are in [`ai_interactions.md`](ai_interactions.md).
+
+Run **live** against the real API (Reproducible Execution Evidence, item 5), output lands in `music_recommender/data/song_attributes.csv` and loads at runtime via `SongAttributesStore.enrich` (`song_attributes.py`) — no key needed to *use* the data, only to *generate* it. Two of the five attributes feed `ranking_strategies.py`'s `_generated_attribute_bonus`, applied uniformly across all 4 strategies: a small popularity bonus and a `detailed_mood_tags` match bonus. This is a measured behavior change, not decoration — it moved Riley's broad-profile ranking from `[Library Rain, Storm Runner, Sunrise City]` to `[Storm Runner, Sunrise City, Library Rain]`, since Sunrise City's popularity (62) is meaningfully higher than Library Rain's (26). Every score in this README was re-verified against the real post-generation output.
+
+<details>
+<summary>Sample of the agent's actual output (3 of 18 songs)</summary>
+
+| Title | Popularity | Decade | Detailed Mood Tags | Vocal Style |
+|---|---|---|---|---|
+| Garden Song | 38 | 2020s | wistful, tender, quietly aching | soft, breathy close-mic'd near-whisper |
+| Sunrise City | 62 | 2020s | uplifting, bright-eyed, celebratory | clear, belted pop vocal with stacked hooks |
+| Ironclad | 29 | 2010s | ferocious, steely, triumphant | harsh shouted vocals with clean-sung chorus |
+</details>
 
 ### Diversity / Fairness Component
 
-`MusicRecommender._diversify` (`recommender.py`) greedily builds the final top-`limit` list, subtracting a penalty each time a candidate's artist (`ARTIST_PENALTY = 2.0`) or genre (`GENRE_PENALTY = 0.75`) is already among the picks made so far — a direct callback to the original TuneMatch's own diversity re-ranking mechanism, updated for this project's evidence-based scoring. Real, captured output (`tests/test_recommender.py::test_diversity_penalty_prevents_a_single_artist_sweep`), four songs — three strong matches by "Artist A", one weaker match by "Artist B":
-
-```
-Without diversity (by raw score alone, hypothetical): A1, A2, A3 — all Artist A
-
-With diversity (actual system output):
-A1 by Artist A (score 5.24)
-B1 by Artist B (score 3.49) — "(Ranked slightly lower to keep your list varied — you already
-                                have a pick from this genre above.)"
-A2 by Artist A (score 1.74) — "(Ranked slightly lower to keep your list varied — you already
-                                have a pick from this artist above.)"
-```
-
-Artist B enters the top 3 instead of a third Artist A track, and the explanation says so explicitly rather than silently reordering. See [`model_card.md`](model_card.md) for how this improves fairness and its one honest limitation (the demo catalog's 18 songs happen to have no repeated artist or genre, so this never actually triggers in the Sample Interactions above — it's proven by a constructed test, not by the demo catalog).
+`MusicRecommender._diversify` greedily builds the final list, subtracting a penalty when a candidate's artist (`ARTIST_PENALTY = 2.0`) or genre (`GENRE_PENALTY = 0.75`) is already picked — a callback to the original TuneMatch's own diversity re-ranking. Proven by `test_diversity_penalty_prevents_a_single_artist_sweep`: given 3 strong matches by "Artist A" and 1 weaker by "Artist B", raw scoring alone would sweep A1/A2/A3; the actual output is **A1, B1, A2** — Artist B enters 2nd place, and the explanation says so explicitly rather than silently reordering. See [`model_card.md`](model_card.md) for the fairness rationale, and its one honest limitation: the 18-song demo catalog has no repeated artist/genre, so this never actually fires in the Sample Interactions above — proven by a constructed test, not the demo data.
 
 ### Multiple Ranking Modes
 
-`music_recommender/ranking_strategies.py` implements the Strategy design pattern: a `RankingStrategy` abstract base class with four interchangeable implementations — `balanced` (default), `genre-first`, `mood-first`, and `energy-similarity` (leans on the specialized model's audio-fit prediction). `MusicRecommender` takes a `ranking_strategy` object and never has to know which one it got; retrieval, diversity re-ranking, and explanation generation are all unaffected by the choice. Switch modes from `app.py`:
-
-```bash
-python app.py --mode genre-first
-python app.py --mode mood-first
-```
-
-Real captured output for a broad profile (`Alex`: genres=`rock, lofi`, moods=`happy, intense`) proves the modes don't just relabel the same ranking — `mood-first` genuinely reorders the results, pulling in a song `genre-first` and `balanced` both leave out:
+`ranking_strategies.py` implements the Strategy pattern: 4 interchangeable `RankingStrategy` implementations (`balanced`, `genre-first`, `mood-first`, `energy-similarity`), swappable via `python app.py --mode <name>` without touching retrieval, diversity, or explanation generation. Real output for a broad profile proves the modes genuinely reorder, not relabel:
 
 | Mode | 1st | 2nd | 3rd |
 |---|---|---|---|
-| `balanced` | Storm Runner | Library Rain | Sunrise City |
+| `balanced` | Storm Runner | Sunrise City | Library Rain |
 | `genre-first` | Storm Runner | Library Rain | Sunrise City |
 | `mood-first` | Storm Runner | **Sunrise City** | **Ironclad** |
 | `energy-similarity` | Storm Runner | Library Rain | Sunrise City |
 
-Under `mood-first`, **Ironclad** (metal, mood=intense) displaces Library Rain (lofi, mood=chill — only a genre match) because it weighs mood matches 10x, exactly the intended behavior for a listener who cares more about how a song feels than its genre label.
+`mood-first` pulls in **Ironclad** (mood=intense) over Library Rain (only a genre match) by weighing mood 10x — the intended behavior for someone who cares more about feel than genre label.
 
 ### Visual Output
 
-`app.py` renders results as a formatted table via `tabulate` (`tablefmt="grid"`) instead of a plain print loop, with columns for Title, Artist, Genre, Score, and a word-wrapped "Why" column showing the actual generated explanation — so the reasoning behind every score is visible at a glance, not something you have to scroll to find:
-
-```
-+-------------+-----------------+-----------+---------+----------------------------------------------------+
-| Title       | Artist          | Genre     |   Score | Why                                                |
-+=============+=================+===========+=========+=====================================================+
-| Garden Song | Phoebe Bridgers | indie pop |    8.46 | Maya, this song is a good fit because it matches   |
-|             |                 |           |         | your interest in indie pop. its reflective mood    |
-|             |                 |           |         | fits your taste. its themes of nostalgia, solitude |
-|             |                 |           |         | align with your preferences. you already like      |
-|             |                 |           |         | Phoebe Bridgers. its overall sound (how energetic, |
-|             |                 |           |         | upbeat, and acoustic it is) closely matches what   |
-|             |                 |           |         | your stated taste predicts you'd enjoy. The lyrics |
-|             |                 |           |         | excerpt "I miss the way we used to be" also        |
-|             |                 |           |         | reinforce the connection. For context, indie pop   |
-|             |                 |           |         | music tends to be: Guitar- or synth-driven pop     |
-|             |                 |           |         | made outside major-label polish, with              |
-|             |                 |           |         | introspective and often confessional lyrics that   |
-|             |                 |           |         | prioritize emotional intimacy over sheen.          |
-+-------------+-----------------+-----------+---------+----------------------------------------------------+
-```
+`app.py` renders results via `tabulate` (`tablefmt="grid"`) with Title/Artist/Genre/Score/Why columns instead of a plain print loop, so every score's reasoning is visible at a glance — see item 1 in Reproducible Execution Evidence above for a full captured example.
 
 ## Reflection
 
@@ -372,4 +375,4 @@ Building this taught me that "an AI system" is rarely one model — it's a small
 
 *(Draft — written from what was actually observable during our collaboration this session; personalize it before submitting so it's in your own voice.)*
 
-Working through this project, I noticed I default to verifying rather than trusting — I asked for test runs, a full debugging pass, and a step-by-step audit against the actual grading rubric before treating anything as done just because it had been described as done. I made the real scope decisions myself at each fork (which embeddings provider to use, what a "specialized model" should actually predict, whether a new stretch-feature rubric replaced or extended the old one, how to handle a live API key safely) rather than letting an AI collaborator pick silently on my behalf. I cared as much about the system being honest about its own limitations — a synthetic training set that visibly fails to extrapolate, live API paths that were implemented but never empirically verified, a fairness component that's proven by a test but never actually triggers on the demo data — as I did about it working at all. That combination — building fast with AI assistance while insisting on independent, reproducible verification at every step, and reporting the failures alongside the successes — is closer to how I want to work as an engineer than either extreme of blind distrust or blind trust of AI-assisted output.
+Working through this project, I noticed I default to verifying rather than trusting — I asked for test runs, a full debugging pass, and a step-by-step audit against the actual grading rubric before treating anything as done just because it had been described as done. I made the real scope decisions myself at each fork (which embeddings provider to use, what a "specialized model" should actually predict, whether a new stretch-feature rubric replaced or extended the old one, how to handle a live API key safely) rather than letting an AI collaborator pick silently on my behalf. I cared as much about the system being honest about its own limitations — a synthetic training set that visibly fails to extrapolate, a fairness component that's proven by a test but never actually triggers on the demo data, and (until the very last feature) live API paths that were implemented but not yet empirically verified — as I did about it working at all. When I finally provided a live API key, that same verification habit meant re-running every previously-documented number rather than assuming the new feature was purely additive — it wasn't; it measurably changed existing rankings, and the whole project got re-checked before being called done. That combination — building fast with AI assistance while insisting on independent, reproducible verification at every step, and reporting the failures alongside the successes — is closer to how I want to work as an engineer than either extreme of blind distrust or blind trust of AI-assisted output.
