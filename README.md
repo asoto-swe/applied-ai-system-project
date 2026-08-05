@@ -5,7 +5,7 @@
 - **AI features:** RAG (hybrid retrieval + a second knowledge-base data source), a trained specialized model (scikit-learn), a live-verified agentic workflow (Claude tool-calling to generate song attributes — [`ai_interactions.md`](ai_interactions.md)), and a dedicated reliability/consistency test system
 - **Engineering signals:** 32 passing tests, every AI dependency degrades gracefully instead of crashing, and real bugs caught and fixed mid-project rather than hidden — see [Testing Summary](#testing-summary) and [`model_card.md`](model_card.md)
 - **Proof it runs:** [Reproducible Execution Evidence](#reproducible-execution-evidence) has 5 real, unedited terminal transcripts — no video required
-- **Try it:** `python app.py --mode mood-first` (see [Setup Instructions](#setup-instructions))
+- **Try it:** `python app.py --mode mood-first`, or `streamlit run ui.py` for an interactive UI (see [Setup Instructions](#setup-instructions))
 
 ## Original Project (Module 1-3)
 
@@ -79,12 +79,17 @@ Data flows in one direction per request: **taste description → Taste Profile �
    python app.py --mode energy-similarity
    ```
 
-7. **Run the automated test suite:**
+7. **Run the interactive UI.** A Streamlit front end (`ui.py`) over the same `TasteProfile` → `MusicRecommender` pipeline `app.py` uses — form inputs for genre/mood/theme/artist, a ranking-mode selector, and a browsable view of the demo catalog:
+   ```bash
+   streamlit run ui.py
+   ```
+
+8. **Run the automated test suite:**
    ```bash
    python -m pytest -v
    ```
 
-8. **Run the reliability report** (the project's "does the AI give consistent answers" evaluation — see Testing Summary below):
+9. **Run the reliability report** (the project's "does the AI give consistent answers" evaluation — see Testing Summary below):
    ```bash
    python scripts/evaluate_reliability.py
    ```
@@ -370,7 +375,7 @@ Run **live** against the real API (Reproducible Execution Evidence, item 5), out
 
 ### Visual Output
 
-`app.py` renders results via `tabulate` (`tablefmt="grid"`) with Title/Artist/Genre/Score/Why columns instead of a plain print loop, so every score's reasoning is visible at a glance — see item 1 in Reproducible Execution Evidence above for a full captured example.
+`app.py` renders results via `tabulate` (`tablefmt="grid"`) with Title/Artist/Genre/Score/Why columns instead of a plain print loop, so every score's reasoning is visible at a glance — see item 1 in Reproducible Execution Evidence above for a full captured example. `ui.py` adds a second, interactive front end (`streamlit run ui.py`) over the identical `TasteProfile` → `MusicRecommender` call path — a form for genre/mood/theme/artist/ranking-mode instead of CLI flags, results as scored cards, and a browsable table of the demo catalog. No recommendation logic lives in `ui.py`; it only collects input and renders what `MusicRecommender.recommend(...)` already returns.
 
 ## Reflection
 
