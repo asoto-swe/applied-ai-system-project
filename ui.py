@@ -137,13 +137,24 @@ label[data-testid="stWidgetLabel"] p { color: #b9c0e6 !important; font-weight: 5
 }
 .tm-card-title { font-weight: 600; color: #f1f3fb; font-size: 1.02rem; }
 .tm-card-meta { color: #9aa3c7; font-size: 0.85rem; margin-top: 0.1rem; }
+.tm-score-wrap { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; }
+.tm-score-label {
+    font-size: 0.6rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; color: #8891c4;
+}
 .tm-score {
-    margin-left: auto; font-family: 'Space Grotesk', sans-serif; font-weight: 700;
+    font-family: 'Space Grotesk', sans-serif; font-weight: 700;
     font-size: 0.95rem; color: #0b1023;
     background: linear-gradient(90deg, #5eead4, #a78bfa);
     border-radius: 999px; padding: 0.25rem 0.75rem; white-space: nowrap;
 }
-.tm-explanation { color: #c3caed; font-size: 0.9rem; line-height: 1.55; margin-top: 0.7rem; }
+.tm-meter-track {
+    width: 100%; height: 6px; border-radius: 999px;
+    background: rgba(148, 163, 253, 0.14); margin-top: 0.8rem; overflow: hidden;
+}
+.tm-meter-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #5eead4, #a78bfa); }
+.tm-explanation { color: #c3caed; font-size: 0.9rem; line-height: 1.55; margin-top: 0.6rem; }
+.tm-score-note { color: #8891c4; font-size: 0.82rem; line-height: 1.5; margin: -0.3rem 0 0.9rem 0; }
 
 [data-testid="stExpander"] {
     border: 1px solid rgba(148, 163, 253, 0.16) !important;
@@ -186,24 +197,24 @@ else:
 st.markdown(f'<div class="tm-status">{status_html}</div>', unsafe_allow_html=True)
 
 with st.form("taste_profile"):
-    name = st.text_input("Your name", value="Alex")
+    name = st.text_input("Your Name", value="Alex")
 
     col1, col2 = st.columns(2)
     with col1:
-        genres = st.text_input("Genres you like", value="rock,lofi", help="Comma-separated, e.g. 'hip hop,indie pop'.")
-        themes = st.text_input("Themes you like", value="", help="Comma-separated, e.g. 'heartbreak,nostalgia'.")
+        genres = st.text_input("Genres You Like", value="rock,lofi", help="Comma-separated, e.g. 'hip hop,indie pop'.")
+        themes = st.text_input("Themes You Like", value="", help="Comma-separated, e.g. 'heartbreak,nostalgia'.")
     with col2:
-        moods = st.text_input("Moods you're after", value="happy,intense", help="Comma-separated, e.g. 'chill,reflective'.")
-        artists = st.text_input("Favorite artists", value="", help="Comma-separated, e.g. 'The xx,Phoebe Bridgers'.")
+        moods = st.text_input("Moods You're After", value="happy,intense", help="Comma-separated, e.g. 'chill,reflective'.")
+        artists = st.text_input("Favorite Artists", value="", help="Comma-separated, e.g. 'The xx,Phoebe Bridgers'.")
 
     col3, col4 = st.columns(2)
     with col3:
-        mode = st.selectbox("Ranking mode", options=sorted(STRATEGIES), index=sorted(STRATEGIES).index("balanced"))
+        mode = st.selectbox("Ranking Mode", options=sorted(STRATEGIES), index=sorted(STRATEGIES).index("balanced"))
         st.caption(MODE_DESCRIPTIONS.get(mode, ""))
     with col4:
-        limit = st.slider("Number of recommendations", min_value=1, max_value=8, value=3)
+        limit = st.slider("Number of Recommendations", min_value=1, max_value=8, value=3)
 
-    submitted = st.form_submit_button("Find my sound \U0001F3A7")
+    submitted = st.form_submit_button("Find My Sound \U0001F3A7")
 
 if submitted:
     profile = TasteProfile(
@@ -221,30 +232,45 @@ if submitted:
     except ValueError as exc:
         st.error(str(exc))
     else:
-        st.markdown(
-            f'<p class="tm-results-heading">Recommendations for {html.escape(profile.name)} '
-            f'&middot; ‘{mode}’ mode</p>',
-            unsafe_allow_html=True,
-        )
-        for rank, rec in enumerate(recommendations, start=1):
+        if not recommendations:
+            st.info("No strong matches for that taste profile — try broadening your genres or moods.")
+        else:
             st.markdown(
-                f"""
-                <div class="tm-card">
-                    <div class="tm-card-row">
-                        <span class="tm-rank">{rank:02d}</span>
-                        <div>
-                            <div class="tm-card-title">{html.escape(rec.title)}</div>
-                            <div class="tm-card-meta">{html.escape(rec.artist)} &middot; {html.escape(rec.genre)}</div>
-                        </div>
-                        <span class="tm-score">{rec.score:.2f}</span>
-                    </div>
-                    <div class="tm-explanation">{html.escape(rec.explanation)}</div>
-                </div>
-                """,
+                f'<p class="tm-results-heading">Recommendations for {html.escape(profile.name)} '
+                f'&middot; ‘{mode}’ mode</p>',
                 unsafe_allow_html=True,
             )
+            st.markdown(
+                '<p class="tm-score-note">Higher match score = stronger fit. Scores are relative to this '
+                'list, not a fixed 0&ndash;10 or percentage scale (and the underlying scale shifts by ranking '
+                'mode) &mdash; the bar under each score shows how that pick compares to your top match here.</p>',
+                unsafe_allow_html=True,
+            )
+            top_score = max(rec.score for rec in recommendations)
+            for rank, rec in enumerate(recommendations, start=1):
+                meter_pct = max(4, min(100, round(rec.score / top_score * 100)))
+                st.markdown(
+                    f"""
+                    <div class="tm-card">
+                        <div class="tm-card-row">
+                            <span class="tm-rank">{rank:02d}</span>
+                            <div>
+                                <div class="tm-card-title">{html.escape(rec.title)}</div>
+                                <div class="tm-card-meta">{html.escape(rec.artist)} &middot; {html.escape(rec.genre)}</div>
+                            </div>
+                            <div class="tm-score-wrap">
+                                <span class="tm-score-label">match score</span>
+                                <span class="tm-score">{rec.score:.2f}</span>
+                            </div>
+                        </div>
+                        <div class="tm-meter-track"><div class="tm-meter-fill" style="width: {meter_pct}%;"></div></div>
+                        <div class="tm-explanation">{html.escape(rec.explanation)}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-with st.expander(f"\U0001F3B6 Browse the demo catalog ({len(CATALOG)} songs)"):
+with st.expander(f"\U0001F3B6 Browse the Demo Catalog ({len(CATALOG)} songs)"):
     st.dataframe(
         [
             {
