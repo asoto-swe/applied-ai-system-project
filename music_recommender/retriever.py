@@ -23,6 +23,21 @@ def _profile_text(profile: TasteProfile) -> str:
     return ". ".join(part for part in parts if part)
 
 
+def _dedupe_ci(items: List[str]) -> List[str]:
+    """Drop case-insensitive repeats, keeping first-seen order/casing. Without
+    this, a profile field with the same entry listed twice (e.g. typed twice,
+    or pasted) would count as two separate matches and inflate the score for
+    every repeat — the same one match, counted N times."""
+    seen = set()
+    deduped = []
+    for item in items:
+        key = item.lower()
+        if key not in seen:
+            seen.add(key)
+            deduped.append(item)
+    return deduped
+
+
 def _song_text(song: Song) -> str:
     parts = [
         f"Genre: {song.genre}",
@@ -79,6 +94,14 @@ class SongRetriever:
     def retrieve(self, profile: TasteProfile, songs: List[Song]) -> List[dict]:
         if not profile.preferred_genres and not profile.preferred_moods and not profile.preferred_themes and not profile.favorite_artists:
             raise ValueError("Taste profile cannot be empty")
+
+        profile = TasteProfile(
+            name=profile.name,
+            preferred_genres=_dedupe_ci(profile.preferred_genres),
+            preferred_moods=_dedupe_ci(profile.preferred_moods),
+            preferred_themes=_dedupe_ci(profile.preferred_themes),
+            favorite_artists=_dedupe_ci(profile.favorite_artists),
+        )
 
         semantic_scores = self._semantic_scores(profile, songs)
         audio_target = self._predict_audio_target(profile)

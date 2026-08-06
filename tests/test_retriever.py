@@ -127,7 +127,7 @@ def test_retrieve_scores_audio_fit_from_taste_model():
 
     assert len(retrieved) == 1
     assert retrieved[0]["audio_fit_score"] == 1.0
-    assert fake_taste_model.last_profile is profile
+    assert fake_taste_model.last_profile == profile
 
 
 def test_retrieve_falls_back_gracefully_when_taste_model_unavailable():
@@ -206,6 +206,23 @@ def test_retrieve_computes_detailed_mood_match_and_popularity_score():
 
     assert retrieved[0]["matched_detailed_moods"] == ["wistful"]
     assert retrieved[0]["popularity_score"] == 0.6
+
+
+def test_retrieve_deduplicates_repeated_profile_entries_case_insensitively():
+    profile = TasteProfile(
+        name="Sam", preferred_genres=["rock", "Rock", "rock"], preferred_moods=["intense"] * 5,
+        preferred_themes=[], favorite_artists=[],
+    )
+    songs = [
+        Song(title="Storm Runner", artist="Voltline", genre="rock", mood="intense", themes=[], lyrics_excerpt="")
+    ]
+    fake_embedding_client = FakeEmbeddingClient(query_vector=[1.0], document_vectors=[[1.0]])
+    retriever = SongRetriever(embedding_client=fake_embedding_client)
+
+    retrieved = retriever.retrieve(profile, songs)
+
+    assert retrieved[0]["matched_genres"] == ["rock"]
+    assert retrieved[0]["matched_moods"] == ["intense"]
 
 
 def test_retrieve_defaults_popularity_score_to_zero_when_unset():
