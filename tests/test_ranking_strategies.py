@@ -2,6 +2,7 @@ import pytest
 
 from music_recommender.ranking_strategies import (
     STRATEGIES,
+    THEME_WEIGHT,
     BalancedStrategy,
     EnergySimilarityStrategy,
     GenreFirstStrategy,
@@ -67,6 +68,23 @@ def test_missing_generated_attribute_keys_default_to_no_bonus():
     matched_detailed_moods/popularity_score keys) must still score fine."""
     strategy = BalancedStrategy()
     assert strategy.score(GENRE_MATCH_EVIDENCE) == strategy.score(GENRE_MATCH_EVIDENCE)  # no KeyError
+
+
+def test_theme_match_carries_more_weight_than_a_flat_categorical_point():
+    """A theme match used to be worth exactly 1 point, the same as any other
+    single-tag match — rarely enough to reorder anything. THEME_WEIGHT gives
+    it more pull so a theme change has a real chance of changing the ranking
+    on its own, not just when combined with a ranking-mode switch."""
+    base = {
+        "matched_genres": [], "matched_moods": [], "matched_themes": [], "matched_artists": [],
+        "semantic_score": 0.0, "audio_fit_score": 0.0,
+    }
+    with_theme = {**base, "matched_themes": ["heartbreak"]}
+
+    for strategy_cls in (BalancedStrategy, GenreFirstStrategy, MoodFirstStrategy, EnergySimilarityStrategy):
+        strategy = strategy_cls()
+        delta = strategy.score(with_theme) - strategy.score(base)
+        assert delta == pytest.approx(THEME_WEIGHT), f"{strategy.name} did not apply THEME_WEIGHT"
 
 
 def test_generated_attribute_bonus_increases_score_consistently_across_strategies():

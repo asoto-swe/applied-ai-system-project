@@ -25,11 +25,21 @@ class RankingStrategy(ABC):
         raise NotImplementedError
 
 
-def _categorical_count(evidence: dict) -> int:
+# A theme match used to be worth exactly 1 point, the same flat weight as any
+# other single-tag match. In practice that was rarely enough to reorder
+# anything — themes only "worked" when a broader ranking-mode swap moved the
+# score enough to notice, which read as themes not mattering on their own.
+# Weighting a theme match above the 1-point default gives it a real chance to
+# shift the ranking by itself, without letting it override an actual genre or
+# mood match (still worth 10x in the strategies that prioritize those).
+THEME_WEIGHT = 2.0
+
+
+def _categorical_count(evidence: dict) -> float:
     return (
         len(evidence["matched_genres"])
         + len(evidence["matched_moods"])
-        + len(evidence["matched_themes"])
+        + len(evidence["matched_themes"]) * THEME_WEIGHT
         + len(evidence["matched_artists"])
     )
 
@@ -71,7 +81,7 @@ class GenreFirstStrategy(RankingStrategy):
     def score(self, evidence: dict) -> float:
         genre_score = len(evidence["matched_genres"]) * 10.0
         other_tags = (
-            len(evidence["matched_moods"]) + len(evidence["matched_themes"]) + len(evidence["matched_artists"])
+            len(evidence["matched_moods"]) + len(evidence["matched_themes"]) * THEME_WEIGHT + len(evidence["matched_artists"])
         )
         return (
             genre_score + other_tags + evidence.get("semantic_score", 0.0)
@@ -89,7 +99,7 @@ class MoodFirstStrategy(RankingStrategy):
     def score(self, evidence: dict) -> float:
         mood_score = len(evidence["matched_moods"]) * 10.0
         semantic = evidence.get("semantic_score", 0.0) * 5.0
-        other_tags = len(evidence["matched_genres"]) + len(evidence["matched_themes"]) * 2 + len(evidence["matched_artists"])
+        other_tags = len(evidence["matched_genres"]) + len(evidence["matched_themes"]) * THEME_WEIGHT + len(evidence["matched_artists"])
         return (
             mood_score + semantic + other_tags + evidence.get("audio_fit_score", 0.0) * 2.0
             + _generated_attribute_bonus(evidence)

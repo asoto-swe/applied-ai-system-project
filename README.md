@@ -3,7 +3,7 @@
 **TL;DR:** A music recommender that retrieves by *meaning* (tags + semantic embeddings), ranks with a trained specialized model, generates grounded explanations via Claude, and re-ranks for fairness — evolved from an explainable rule-based Module 3 prototype into a 4-signal AI pipeline.
 
 - **AI features:** RAG (hybrid retrieval + a second knowledge-base data source), a trained specialized model (scikit-learn), a live-verified agentic workflow (Claude tool-calling to generate song attributes — [`ai_interactions.md`](ai_interactions.md)), and a dedicated reliability/consistency test system
-- **Engineering signals:** 32 passing tests, every AI dependency degrades gracefully instead of crashing, and real bugs caught and fixed mid-project rather than hidden — see [Testing Summary](#testing-summary) and [`model_card.md`](model_card.md)
+- **Engineering signals:** 34 passing tests, every AI dependency degrades gracefully instead of crashing, and real bugs caught and fixed mid-project rather than hidden — see [Testing Summary](#testing-summary) and [`model_card.md`](model_card.md)
 - **Proof it runs:** [Reproducible Execution Evidence](#reproducible-execution-evidence) has 5 real, unedited terminal transcripts — no video required
 - **Try it:** `python app.py --mode mood-first`, or `streamlit run ui.py` for an interactive UI (see [Setup Instructions](#setup-instructions))
 
@@ -103,7 +103,7 @@ The following are real, unedited outputs captured from this codebase (no `VOYAGE
 Input: `TasteProfile(name='Maya', preferred_genres=['indie pop'], preferred_moods=['reflective'], preferred_themes=['nostalgia', 'solitude'], favorite_artists=['Phoebe Bridgers'])`
 
 ```
-Garden Song by Phoebe Bridgers (score: 8.65)
+Garden Song by Phoebe Bridgers (score: 10.65)
 Maya, this song is a good fit because it matches your interest in indie pop.
 its reflective mood fits your taste. its themes of nostalgia, solitude align
 with your preferences. you already like Phoebe Bridgers. its overall sound
@@ -211,11 +211,11 @@ Personalized recommendations for Alex - ranking mode: 'mood-first'
 </details>
 
 <details>
-<summary><b>3. Automated test suite</b> — <code>python -m pytest -v</code> (32/32 passed in 1.82s)</summary>
+<summary><b>3. Automated test suite</b> — <code>python -m pytest -v</code> (34/34 passed in 1.77s)</summary>
 
 ```
 $ python -m pytest -v
-collected 32 items
+collected 34 items
 
 tests/test_ranking_strategies.py::test_genre_first_prefers_the_genre_match PASSED
 tests/test_ranking_strategies.py::test_energy_similarity_prefers_the_audio_match PASSED
@@ -224,6 +224,7 @@ tests/test_ranking_strategies.py::test_get_strategy_rejects_unknown_name PASSED
 tests/test_ranking_strategies.py::test_mood_first_weighs_mood_over_genre PASSED
 tests/test_ranking_strategies.py::test_balanced_strategy_blends_all_signals PASSED
 tests/test_ranking_strategies.py::test_missing_generated_attribute_keys_default_to_no_bonus PASSED
+tests/test_ranking_strategies.py::test_theme_match_carries_more_weight_than_a_flat_categorical_point PASSED
 tests/test_ranking_strategies.py::test_generated_attribute_bonus_increases_score_consistently_across_strategies PASSED
 tests/test_recommender.py::test_recommend_songs_returns_ranked_matches PASSED
 tests/test_recommender.py::test_recommend_songs_rejects_empty_profile PASSED
@@ -242,6 +243,7 @@ tests/test_retriever.py::test_retrieve_falls_back_gracefully_when_taste_model_un
 tests/test_retriever.py::test_retrieve_attaches_genre_context_from_second_data_source PASSED
 tests/test_retriever.py::test_retrieve_genre_context_is_none_for_unknown_genre PASSED
 tests/test_retriever.py::test_retrieve_computes_detailed_mood_match_and_popularity_score PASSED
+tests/test_retriever.py::test_retrieve_deduplicates_repeated_profile_entries_case_insensitively PASSED
 tests/test_retriever.py::test_retrieve_defaults_popularity_score_to_zero_when_unset PASSED
 tests/test_song_attributes.py::test_enrich_applies_attributes_for_matching_title PASSED
 tests/test_song_attributes.py::test_enrich_leaves_defaults_for_unmatched_title PASSED
@@ -250,7 +252,7 @@ tests/test_taste_model.py::test_predict_returns_valid_audio_profile_for_known_ta
 tests/test_taste_model.py::test_predict_averages_across_multiple_genres_and_moods PASSED
 tests/test_taste_model.py::test_predict_returns_none_without_genre_or_mood_signal PASSED
 
-============================= 32 passed in 1.82s ==============================
+============================= 34 passed in 1.77s ==============================
 ```
 </details>
 
@@ -263,7 +265,7 @@ $ python scripts/evaluate_reliability.py
 RELIABILITY REPORT
 ======================================================================
 [PASS] Consistency for 'Maya'
-       3 runs, identical rankings: [('Garden Song', 8.65)]
+       3 runs, identical rankings: [('Garden Song', 10.65)]
 [PASS] Graceful degradation for 'Maya'
        1 recommendations, within_limit=True, sorted_desc=True, all_positive=True
 [PASS] Explanation groundedness for 'Maya'
@@ -307,6 +309,7 @@ Full captured reasoning trace (exact prompts sent, and the agent's own decision 
 ## Design Decisions
 
 - **Three AI signals blended, not chained** (tags, Voyage semantic similarity, trained audio-fit model — `SEMANTIC_WEIGHT = 3.0`, `AUDIO_WEIGHT = 1.5`). Trade-off: more failure surface, but each degrades independently — a Voyage outage doesn't take down Claude or the trained model.
+- **A theme match is weighted above a flat categorical point** (`THEME_WEIGHT = 2.0` in `ranking_strategies.py`, applied consistently across all 4 strategies). Originally themes counted the same as any other single-tag match (1 point), which was rarely enough to change the ranking on its own — it only became visible when combined with a ranking-mode switch that reweighted everything else too. Still capped well below a full genre/mood match (10x in the strategies that prioritize those), so it nudges rather than overrides.
 - **Voyage AI for embeddings**, since Anthropic has no first-party embeddings API and Voyage is Anthropic's own recommended provider. Isolated entirely in `embeddings.py`.
 - **The specialized model refines ranking, it doesn't gate retrieval** — audio-fit only affects *where* a song lands, never *whether* it's retrieved. Keeps retrieval predictable and testable, at the cost of the model being unable to surface a song on sound alone.
 - **A small, synthetic 29-row training set**, not scraped/licensed data — reproducible and fast to retrain, at the honest cost of generalization (proven in Testing Summary below). This demonstrates the *architecture*, not a production model.
@@ -315,7 +318,7 @@ Full captured reasoning trace (exact prompts sent, and the agent's own decision 
 
 ## Testing Summary
 
-**What worked:** 32/32 `pytest` tests pass; the reliability report passes 16/16 checks across 5 profiles (1 normal, 4 adversarial). The same query run 3x produces byte-identical rankings every time — the core trust guarantee an "AI recommender" needs. The specialized model was confirmed live, not just in fallback: Maya's Garden Song scores 8.65 with its audio-fit + popularity bonuses contributing, vs. 7.0 with neither. The agentic attribute-generation script was also run live end-to-end against the real Claude API — see Reproducible Execution Evidence, item 5.
+**What worked:** 34/34 `pytest` tests pass; the reliability report passes 16/16 checks across 5 profiles (1 normal, 4 adversarial). The same query run 3x produces byte-identical rankings every time — the core trust guarantee an "AI recommender" needs. The specialized model was confirmed live, not just in fallback: Maya's Garden Song scores 10.65 with its audio-fit + popularity bonuses contributing, vs. 7.0 with neither. The agentic attribute-generation script was also run live end-to-end against the real Claude API — see Reproducible Execution Evidence, item 5.
 
 **What didn't work initially:** `scripts/evaluate_reliability.py` failed with `ModuleNotFoundError` on first direct run, because a script in a subdirectory can't import the top-level package by default. Fixed with a `sys.path` bootstrap.
 
@@ -325,7 +328,7 @@ Full captured reasoning trace (exact prompts sent, and the agent's own decision 
 
 This project proves it works through three of the four standard reliability approaches: **automated tests** (`tests/`, `pytest`), **logging and error handling** (every AI dependency logs a warning and falls back deterministically — see `retriever.py`, `recommender.py`, `taste_model.py`), and **human evaluation** (manual review of real system output against explicit criteria, table below). Confidence scoring wasn't added as a separate mechanism, but `semantic_score` and `audio_fit_score` already function as per-recommendation confidence signals surfaced in the final score.
 
-**32/32 automated tests passed; 16/16 automated reliability checks passed** (consistency, graceful degradation, the empty-profile guardrail, and explanation groundedness, across 5 profiles). **Manual review of 6 representative interactions: 5/6 passed cleanly, 1 revealed a genuine limitation** — the specialized model doesn't extrapolate well to genre/mood combinations absent from its training data; it regresses toward the dataset's average instead of reflecting either stated preference. That's an honest consequence of a deliberately small, 29-row synthetic training set (see Design Decisions), not a code defect.
+**34/34 automated tests passed; 16/16 automated reliability checks passed** (consistency, graceful degradation, the empty-profile guardrail, and explanation groundedness, across 5 profiles). **Manual review of 6 representative interactions: 5/6 passed cleanly, 1 revealed a genuine limitation** — the specialized model doesn't extrapolate well to genre/mood combinations absent from its training data; it regresses toward the dataset's average instead of reflecting either stated preference. That's an honest consequence of a deliberately small, 29-row synthetic training set (see Design Decisions), not a code defect.
 
 | Test Input | Evaluation Criteria | Result |
 |---|---|---|
