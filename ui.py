@@ -27,6 +27,12 @@ MODE_DESCRIPTIONS = {
     "energy-similarity": "Weighs predicted energy/valence/acousticness fit most.",
 }
 
+GENRE_OPTIONS = sorted({song.genre for song in CATALOG})
+MOOD_OPTIONS = sorted({song.mood for song in CATALOG})
+THEME_OPTIONS = sorted({theme for song in CATALOG for theme in song.themes})
+ARTIST_OPTIONS = sorted({song.artist for song in CATALOG})
+PICKER_HELP = "Pick from the catalog, or type your own and press Enter to try something outside it."
+
 CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500&display=swap');
@@ -172,10 +178,6 @@ def get_recommender(mode: str) -> MusicRecommender:
     return MusicRecommender(ranking_strategy=get_strategy(mode))
 
 
-def split_csv(raw: str) -> list:
-    return [item.strip() for item in raw.split(",") if item.strip()]
-
-
 st.markdown(
     """
     <div class="tm-hero">
@@ -201,11 +203,23 @@ with st.form("taste_profile"):
 
     col1, col2 = st.columns(2)
     with col1:
-        genres = st.text_input("Genres You Like", value="rock,lofi", help="Comma-separated, e.g. 'hip hop,indie pop'.")
-        themes = st.text_input("Themes You Like", value="", help="Comma-separated, e.g. 'heartbreak,nostalgia'.")
+        genres = st.multiselect(
+            "Genres You Like", options=GENRE_OPTIONS, default=["rock", "lofi"],
+            accept_new_options=True, help=PICKER_HELP,
+        )
+        themes = st.multiselect(
+            "Themes You Like", options=THEME_OPTIONS, default=[],
+            accept_new_options=True, help=PICKER_HELP,
+        )
     with col2:
-        moods = st.text_input("Moods You're After", value="happy,intense", help="Comma-separated, e.g. 'chill,reflective'.")
-        artists = st.text_input("Favorite Artists", value="", help="Comma-separated, e.g. 'The xx,Phoebe Bridgers'.")
+        moods = st.multiselect(
+            "Moods You're After", options=MOOD_OPTIONS, default=["happy", "intense"],
+            accept_new_options=True, help=PICKER_HELP,
+        )
+        artists = st.multiselect(
+            "Favorite Artists", options=ARTIST_OPTIONS, default=[],
+            accept_new_options=True, help=PICKER_HELP,
+        )
 
     col3, col4 = st.columns(2)
     with col3:
@@ -219,10 +233,10 @@ with st.form("taste_profile"):
 if submitted:
     profile = TasteProfile(
         name=name or "Listener",
-        preferred_genres=split_csv(genres),
-        preferred_moods=split_csv(moods),
-        preferred_themes=split_csv(themes),
-        favorite_artists=split_csv(artists),
+        preferred_genres=genres,
+        preferred_moods=moods,
+        preferred_themes=themes,
+        favorite_artists=artists,
     )
 
     try:
